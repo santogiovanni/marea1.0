@@ -1,3 +1,4 @@
+# click library similar to argparse
 import click
 import glob
 import re
@@ -6,34 +7,43 @@ from os import makedirs
 from os.path import basename, join
 from typing import Dict
 
-from filter_abstracts import PMID_INDEX, PUBYEAR_INDEX
+# code inheritance - importing variables from filter_abstracts
+# from filter_abstracts import PMID_INDEX, PUBYEAR_INDEX
+
+# grabbing replaced file
 from pubtate import REPLACED_FILENAME
+
+# imports entire class
 from text_post_processor import TextPostProcessor
 
+# output we write to (will contain PMID, publication date, modified title + abstract)
 OUT_FILENAME = 'pubmed_cr.tsv'
 
+# method not needed --> we take in all abstracts
 
-def make_relevant_dict(rel_dir) -> Dict[str, str]:
-    """
-    Create dictionary with key PMID, value publication year for all articles
-    considered relevant.
-    :param rel_dir: directory containing files of relevant PubMed articles.
-    :return:        dictionary
-    """
-    relevant = {}
-    files_to_process = glob.glob(join(rel_dir, '*.tsv'))
-    files_to_process.sort()
-    for f in files_to_process:
-        click.echo(basename(f))
-        with click.open_file(f) as infile:
-            for line in infile:
-                fields = line.strip().split('\t')
-                relevant[fields[PMID_INDEX]] = fields[PUBYEAR_INDEX]
-    return relevant
+# def make_relevant_dict(rel_dir) -> Dict[str, str]:
+#     """
+#     Create dictionary with key PMID, value publication year for all articles
+#     considered relevant.
+#     :param rel_dir: directory containing files of relevant PubMed articles.
+#     :return:        dictionary
+#     """
+#
+#     # dictionary: key:PMID; value:Publication year (mapping)
+#     relevant = {}
+#
+#     # finds all the pathnames matching a specified pattern
+#     files_to_process = glob.glob(join(rel_dir, '*.tsv'))
+#     files_to_process.sort()
+#     for f in files_to_process:
+#         click.echo(basename(f))
+#         with click.open_file(f) as infile:
+#             for line in infile:
+#                 fields = line.strip().split('\t')
+#                 relevant[fields[PMID_INDEX]] = fields[PUBYEAR_INDEX]
+#     return relevant
 
-
-def select_articles(pubtator_file, nltk_dir, out_dir,
-                    relevant: Dict[str, str]) -> str:
+def select_articles(pubtator_file, nltk_dir, out_dir) -> str:
     """
     Write output file containing PMID, publication year, and title+abstract
     with Pubtator Central concept replacements for all relevant articles.
@@ -42,13 +52,17 @@ def select_articles(pubtator_file, nltk_dir, out_dir,
                           replacement
     :param nltk_dir:      directory containing nltk data
     :param out_dir:       directory for output files
-    :param relevant:      dictionary mapping PMID to publication year for
-                          relevant articles
+    # :param relevant:      dictionary mapping PMID to publication year for
+    #                       relevant articles
     :return:              highest pmid written to output file
     """
     pattern = re.compile(r'^(\d+)\t(.+)$')
+
+    # runs dictionary through TPP class from text_post_processor.py
     tpp = TextPostProcessor(nltk_dir)
     highest_pmid = '0'
+
+    # 'w' - writes to file
     with click.open_file(join(out_dir, OUT_FILENAME), 'w') as outfile:
         with click.open_file(pubtator_file) as pfile:
             for line in pfile:
@@ -56,15 +70,17 @@ def select_articles(pubtator_file, nltk_dir, out_dir,
                 if m:
                     pmid = m.group(1)
                     title_abstract = m.group(2)
-                    if pmid in relevant:
-                        cleaned_up = tpp.process_phrase(title_abstract)
-                        # in case the title+abstract consists solely of
-                        # punctuation and stop words, check the length
-                        if cleaned_up != '':
-                            outfile.write('{}\t{}\t{}\n'.format(
-                                pmid, relevant[pmid], cleaned_up))
-                            if int(pmid) > int(highest_pmid):
-                                highest_pmid = pmid
+                    # if pmid:
+
+                    # stays as is
+                    cleaned_up = tpp.process_phrase(title_abstract)
+                    # in case the title+abstract consists solely of
+                    # punctuation and stop words, check the length
+                    if cleaned_up != '':
+                        outfile.write('{}\t{}\n'.format(
+                            pmid, cleaned_up))
+                        if int(pmid) > int(highest_pmid):
+                            highest_pmid = pmid
                 else:
                     raise ValueError('Unexpected format in pubtator file:\n{}'.
                                      format(line))
@@ -75,13 +91,13 @@ def select_articles(pubtator_file, nltk_dir, out_dir,
 @click.command()
 @click.option('-p', type=click.Path(exists=True), required=True,
               help='directory of pubtator file with concepts replaced')
-@click.option('-r', type=click.Path(exists=True), required=True,
-              help='directory of relevant abstracts')
+# @click.option('-r', type=click.Path(exists=True), required=False,
+#               help='directory of relevant abstracts')
 @click.option('-n', type=click.Path(), required=True, help='directory for nltk data')
 @click.option('-o', type=click.Path(), required=True, help='output directory')
 # python post_process.py -p ../data/pubtator -r ../data/pubmed_rel \
 #        -n ../data/nltk_data -o ../data/pubmed_cr
-def main(p, r, n, o):
+def main(p, n, o):
     """
     Extract relevant articles from pre-computed file of PubMed titles and
     abstracts with Pubtator Central concept replacements.
@@ -92,9 +108,9 @@ def main(p, r, n, o):
     :return: None
     """
     makedirs(o, exist_ok=True)
-    rel_dict = make_relevant_dict(r)
-    highest_written = select_articles(join(p, REPLACED_FILENAME), n, o, rel_dict)
-    click.echo('Highest relevant PMID is {}'.format(max(rel_dict.keys(), key=int)))
+    # rel_dict = make_relevant_dict(r)
+    highest_written = select_articles(join(p, REPLACED_FILENAME), n, o) # rel_dict)
+    # click.echo('Highest relevant PMID is {}'.format(max(rel_dict.keys(), key=int)))
     click.echo('Highest written PMID is {}'.format(highest_written))
 
 
